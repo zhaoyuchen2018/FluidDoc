@@ -604,7 +604,28 @@ StaticRNN
 
 .. py:class:: paddle.fluid.layers.StaticRNN(name=None)
 
+.. code-block:: python
 
+	import paddle.fluid.layers as layers
+	import paddle.fluid as fluid
+
+        vocab_size, hidden_size=10000, 200
+        x = layers.data(name="x", shape=[-1, 1, 1], dtype='int64')
+        x_emb = layers.embedding(
+                 input=x,
+                 size=[vocab_size, hidden_size],
+                 dtype='float32',
+                 is_sparse=False)
+        x_emb = layers.transpose(x_emb, perm=[1, 0, 2])
+
+        rnn = fluid.layers.StaticRNN()
+        with rnn.step():
+            word = rnn.step_input(x_emb)
+            prev = rnn.memory(shape=[-1, hidden_size], batch_ref = word)
+            hidden = fluid.layers.fc(input=[word, prev], size=hidden_size, act='relu')
+            rnn.update_memory(prev, hidden)  # set prev to hidden
+            rnn.step_output(hidden)
+        result = rnn()
 用于创建static RNN。RNN将有自己的参数，比如输入、输出、memory、状态和长度。
 
 .. py:method:: memory(init=None, shape=None, batch_ref=None, init_value=0.0, init_batch_dim_idx=0, ref_batch_dim_idx=1)
@@ -618,6 +639,26 @@ StaticRNN
     - **ref_batch_dim_idx** - batch_ref维度中的batch大小的索引
 
 
+.. code-block:: python
+
+	import paddle.fluid.layers as layers
+	import paddle.fluid as fluid
+
+        vocab_size, hidden_size=10000, 200
+        x = layers.data(name="x", shape=[-1, 1, 1], dtype='int64')
+        x_emb = layers.embedding(
+                 input=x,
+                 size=[vocab_size, hidden_size],
+                 dtype='float32',
+                 is_sparse=False)
+        x_emb = layers.transpose(x_emb, perm=[1, 0, 2])
+
+        rnn = fluid.layers.StaticRNN()
+        with rnn.step():
+            word = rnn.step_input(x_emb)
+            prev = rnn.memory(init=word)
+            hidden = fluid.layers.fc(input=[word, prev], size=hidden_size, act='relu')
+            rnn.update_memory(prev, hidden)
 
 
 
