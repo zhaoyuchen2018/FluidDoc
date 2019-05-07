@@ -613,74 +613,24 @@ StaticRNN
 
 	import paddle.fluid.layers as layers
 	import paddle.fluid as fluid
-	from paddle.fluid.layers.control_flow import StaticRNN as StaticRNN
 
-	vocab_size=10000
-	hidden_size=200
-	num_steps=35
-	num_layers=1
+        vocab_size, hidden_size=10000, 200
+        x = layers.data(name="x", shape=[-1, 1, 1], dtype='int64')
+        x_emb = layers.embedding(
+                 input=x,
+                 size=[vocab_size, hidden_size],
+                 dtype='float32',
+                 is_sparse=False)
+        x_emb = layers.transpose(x_emb, perm=[1, 0, 2])
 
-	x = layers.data(name="x", shape=[-1, 1, 1], dtype='int64')
-	x_emb = layers.embedding(
-		input=x,
-		size=[vocab_size, hidden_size],
-		dtype='float32',
-		is_sparse=False)
-
-	x_emb = layers.reshape(x_emb, shape=[-1, num_steps, hidden_size])
-	input_embedding = layers.transpose(x_emb, perm=[1, 0, 2])
-	rnn = StaticRNN()
-
-	init_hidden = layers.data(name="init_hidden", shape=[1], dtype='float32')
-	init_cell = layers.data(name="init_cell", shape=[1], dtype='float32')
-
-	init_hidden = layers.reshape(init_hidden, shape=[num_layers, -1, hidden_size])
-	init_cell = layers.reshape(init_cell, shape=[num_layers, -1, hidden_size])
-
-	pre_hidden = layers.slice(
-                init_hidden, axes=[0], starts=[0], ends=[0 + 1])
-	pre_cell = layers.slice(
-                init_cell, axes=[0], starts=[0], ends=[0 + 1])
-	pre_hidden = layers.reshape(pre_hidden, shape=[-1, hidden_size])
-	pre_cell = layers.reshape(pre_cell, shape=[-1, hidden_size])
-
-	with rnn.step():
-		input = rnn.step_input(input_embedding)
-		pre_hidden = rnn.memory(init=pre_hidden)
-		pre_cell = rnn.memory(init=pre_cell)
-		gate_input = layers.concat([input, pre_hidden], 1)
-		i = layers.slice(gate_input, axes=[1], starts=[0], ends=[hidden_size])
-		j = layers.slice(
-                    gate_input,
-                    axes=[1],
-                    starts=[hidden_size],
-                    ends=[hidden_size * 2])
-		f = layers.slice(
-                    gate_input,
-                    axes=[1],
-                    starts=[hidden_size * 2],
-                    ends=[hidden_size * 3])
-		o = layers.slice(
-                    gate_input,
-                    axes=[1],
-                    starts=[hidden_size * 3],
-                    ends=[hidden_size * 4])
-
-		c = pre_cell * layers.sigmoid(f) + layers.sigmoid(
-                    i) * layers.tanh(j)
-		m = layers.tanh(c) * layers.sigmoid(o)
-
-		rnn.update_memory(pre_hidden, m)
-		rnn.update_memory(pre_cell, c)
-
-		rnn.step_output(m)
-		rnn.step_output(c)
-
-		input = m
-		rnn.step_output(input)
-	rnnout = rnn()
-
-
+        rnn = fluid.layers.StaticRNN()
+        with rnn.step():
+            word = rnn.step_input(x_emb)
+            prev = rnn.memory(shape=[-1, hidden_size], batch_ref = word)
+            hidden = fluid.layers.fc(input=[word, prev], size=hidden_size, act='relu')
+            rnn.update_memory(prev, hidden)  # set prev to hidden
+            rnn.step_output(hidden)
+        result = rnn()
 .. py:method:: memory(init=None, shape=None, batch_ref=None, init_value=0.0, init_batch_dim_idx=0, ref_batch_dim_idx=1)
 
 参数：
@@ -692,7 +642,26 @@ StaticRNN
     - **ref_batch_dim_idx** - batch_ref维度中的batch大小的索引
 
 
+.. code-block:: python
 
+	import paddle.fluid.layers as layers
+	import paddle.fluid as fluid
+
+        vocab_size, hidden_size=10000, 200
+        x = layers.data(name="x", shape=[-1, 1, 1], dtype='int64')
+        x_emb = layers.embedding(
+                 input=x,
+                 size=[vocab_size, hidden_size],
+                 dtype='float32',
+                 is_sparse=False)
+        x_emb = layers.transpose(x_emb, perm=[1, 0, 2])
+
+        rnn = fluid.layers.StaticRNN()
+        with rnn.step():
+            word = rnn.step_input(x_emb)
+            prev = rnn.memory(init=word)
+            hidden = fluid.layers.fc(input=[word, prev], size=hidden_size, act='relu')
+            rnn.update_memory(prev, hidden)
 
 
 
